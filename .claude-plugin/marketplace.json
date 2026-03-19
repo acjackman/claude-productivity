@@ -8,6 +8,11 @@
       "name": "productivity",
       "source": "./productivity",
       "description": "Foundation plugin for Obsidian-backed productivity: task management, workplace memory, effort tracking, and review."
+    },
+    {
+      "name": "moov-workflow",
+      "source": "./moov-workflow",
+      "description": "Moov-specific workflow skills: daily shutdown, morning sync, and mid-day update. Requires the productivity foundation plugin."
     }
   ]
 }
