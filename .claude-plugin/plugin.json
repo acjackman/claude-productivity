@@ -1,0 +1,9 @@
+{
+  "name": "productivity",
+  "version": "2.0.0",
+  "description": "Foundation plugin for Obsidian-backed productivity: task management, workplace memory, effort tracking, and review. Workflow skills (shutdown, sync, update) are configured per-vault.",
+  "author": {
+    "name": "Adam Jackman"
+  },
+  "repository": "https://github.com/acjackman/claude-productivity"
+}
