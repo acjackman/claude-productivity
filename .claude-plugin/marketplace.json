@@ -1,0 +1,13 @@
+{
+  "name": "claude-productivity",
+  "owner": {
+    "name": "Adam Jackman"
+  },
+  "plugins": [
+    {
+      "name": "productivity",
+      "source": "./productivity",
+      "description": "Foundation plugin for Obsidian-backed productivity: task management, workplace memory, effort tracking, and review."
+    }
+  ]
+}
