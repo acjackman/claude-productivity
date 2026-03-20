@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# shutdown-collect — gather GitHub PR + session data for the shutdown routine
+# Covers the full working day: 5am today (or 5am yesterday if before 5am) to now
+# Output is written to the Obsidian vault for automatic pickup by the shutdown skill
+#
+# Usage: shutdown-collect
+#   No arguments needed — date window is computed automatically
+
+VAULT="${OBSIDIAN_VAULT:-$HOME/notes/moov}"
+REPO="moovfinancial/infra"
+
+# ── Day boundary: 5am defines the start of the work day ─────────────────────
+CURRENT_HOUR=$(date +%H)
+if (( 10#$CURRENT_HOUR < 5 )); then
+  # Before 5am — this is still yesterday's work day
+  WORK_DATE=$(date -v-1d +%Y-%m-%d)
+else
+  WORK_DATE=$(date +%Y-%m-%d)
+fi
+
+NOW=$(date +%Y-%m-%dT%H:%M:%S)
+OUT="$VAULT/+/shutdown-collect-$WORK_DATE.md"
+
+echo "Collecting shutdown data for $WORK_DATE → $NOW..."
+
+{
+echo "# Shutdown Collect — $WORK_DATE"
+echo "_Generated: $NOW_"
+echo ""
+
+# ── My Open PRs ─────────────────────────────────────────────────────────────
+echo "## My Open PRs"
+echo ""
+
+gh pr list \
+  --repo "$REPO" \
+  --author @me \
+  --state open \
+  --json number,title,url,isDraft,reviewDecision,headRefName \
+  --template '{{range .}}{{if .isDraft}}[DRAFT] {{else}}[OPEN]  {{end}}#{{.number}} {{.title}}
+  {{.url}}
+{{end}}' 2>/dev/null || echo "(gh unavailable)"
+
+echo ""
+
+# ── PRs I Reviewed This Work Day ─────────────────────────────────────────────
+echo "## PRs Reviewed"
+echo ""
+
+gh search prs \
+  --reviewed-by "@me" \
+  --updated ">=$WORK_DATE" \
+  --owner moovfinancial \
+  --json number,title,url,state,repository,author \
+  --template '{{range .}}[{{.state}}] #{{.number}} {{.title}} ({{.repository.nameWithOwner}}) by {{.author.login}}
+  {{.url}}
+{{end}}' 2>/dev/null || echo "(gh unavailable)"
+
+echo ""
+
+# ── PRs I Commented On This Work Day ─────────────────────────────────────────
+echo "## PRs Commented On"
+echo ""
+
+gh search prs \
+  --commenter "@me" \
+  --updated ">=$WORK_DATE" \
+  --owner moovfinancial \
+  --json number,title,url,state,repository,author \
+  --template '{{range .}}[{{.state}}] #{{.number}} {{.title}} ({{.repository.nameWithOwner}}) by {{.author.login}}
+  {{.url}}
+{{end}}' 2>/dev/null || echo "(gh unavailable)"
+
+echo ""
+
+# ── Session Summary ──────────────────────────────────────────────────────────
+echo "## Session Summary"
+echo ""
+
+SESSION_SUMMARY="${HOME}/.local/bin/session-summary"
+if [ -x "$SESSION_SUMMARY" ]; then
+  "$SESSION_SUMMARY" "$WORK_DATE"
+else
+  echo "(session-summary not found at $SESSION_SUMMARY)"
+fi
+
+} | tee "$OUT"
+
+echo ""
+echo "→ Written to $OUT"

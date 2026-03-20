@@ -46,11 +46,19 @@ Pull from all sources simultaneously to minimize wait time:
 | **Slack** | My messages today: `from:@me on:YYYY-MM-DD` — paginate to get all results |
 | **Gmail (other)** | Non-GitHub emails today — filter out automated noise (ACH uploads, bot alerts) |
 
-**GitHub PR strategy:** The `gh` CLI may not be available. Reconstruct PR activity from Gmail GitHub notification emails:
+**GitHub PR strategy:** Use GitHub MCP tools if available (preferred). Query:
+- My open PRs: filter by author, include draft status
+- PRs I reviewed or commented on today
+
+If GitHub MCP tools are not available, check the vault for `+/shutdown-collect-YYYY-MM-DD.md` (today's work date). The `moov-workflow/bin/shutdown-collect` script writes there automatically — if the file exists, read it for PR and session data. If neither GitHub MCP nor the collect file is available, fall back to Gmail GitHub notification emails:
 - "requested your review" → PR I was asked to review
 - "Merged #NNN" where I'm CC'd as reviewer or commenter → reviewed PR that merged
 - CC'd as "Comment" → PR I commented on
 - My name as author in a merge notification → my own PR merged
+
+Note: Gmail reconstruction misses draft PRs entirely. If GitHub MCP and shutdown-collect output are both unavailable, flag this gap in the report.
+
+**Session summary:** Prefer `shutdown-collect` output for session data over the Computer Session Overview the user fills in manually — it's more precise. If both are present, the script output takes precedence.
 
 **Slack pagination:** Fetch all pages. Group messages by channel before moving on.
 
@@ -87,6 +95,18 @@ For blocks the user has already written, append links and context — do not rew
 
 Keep additions to one link or brief clause per bullet. The Log is a navigation surface, not a transcript.
 
+### Review Capture for duplicates
+
+Read today's `## Capture`. For each item, check whether a matching effort already exists in `efforts/` — by title similarity, Linear ticket ID, or topic overlap. If a likely match is found, surface it:
+
+```
+Capture item: "Check kubernetes readiness probes from Sean Patterson"
+Possible match: [[efforts/20260319100006-spicedb-kind|INFRA-4398]] — readiness probe discussion also in 1:1 Log block
+→ Duplicate? Or separate?
+```
+
+Present all potential duplicates together in one pass for Adam to review — don't modify Capture or efforts automatically. The goal is to flag, not to act.
+
 ## Step 4: Fill the Summary
 
 Find `## Summary` in today's note. The Computer Session Overview sub-section is filled manually by the user — if it's missing or empty, prompt them to add it, then continue. Fill all other sub-sections from the gathered data:
@@ -94,31 +114,43 @@ Find `## Summary` in today's note. The Computer Session Overview sub-section is 
 ```markdown
 ## Summary
 
-#### Computer Session Overview
-[User fills manually — prompt if missing]
+### Computer Session Overview
+[Populated from `+/shutdown-collect-YYYY-MM-DD.md` session summary if available — covers 5am to now. Otherwise filled manually by user; prompt if missing.]
 
-#### Calendar Events
-| Time | Event | Notes |
-|---|---|---|
-| All day | Home (working location) | |
-| 10:00–10:25 AM | Standup - Infra | ... |
+### Github
+#### My Open PRs
+[Prefer GitHub MCP tools; fall back to Gmail notifications. Draft PRs are not visible via Gmail — always require GitHub MCP or flag as unknown.]
 
-#### My Open GitHub PRs
-**Merged** / **Closed** / **Waiting on Review** / **Draft**
-[Reconstructed from Gmail GitHub notifications]
+**Draft** ← highest priority — work close to shipping
+- [#NNN](url) Title (INFRA-NNN)
+
+**Waiting on Review**
+- [#NNN](url) Title (INFRA-NNN)
+
+**Merged today** / **Closed today**
+- [#NNN](url) Title
 
 #### PRs I Reviewed
 | PR | Repo | Author | Status |
 |---|---|---|---|
 | [#NNN](url) Title | repo | Name | Merged/Open |
 
-**Commented on (approvals by others):**
-| PR | Repo | Notes |
-|---|---|---|
+### Linear Tickets
+[For each ticket, link to its effort file — create one if missing. Never use the raw Linear URL as the link.]
 
-#### My Linear Tickets
-**Completed today** / **Canceled today** / **Active** / **Back-burner**
+#### Completed today
+- [[efforts/file|INFRA-NNN]] Ticket title
+
+#### Active
+- [[efforts/file|INFRA-NNN]] Ticket title
 [completedAt = today for completed; In Progress for active; Todo/Incoming for back-burner]
+
+### Communications
+#### New Meeting Invites
+| Date/Time | Event | From | Accepted? |
+|---|---|---|---|
+| Fri Mar 20 10:30 AM | ISSU-1135 shazam gateway | Morgan Hargrove | ✓ |
+[Calendar invite emails received today — two cases: (1) new meetings scheduled for a future date, (2) existing/recurring meetings rescheduled to a new time today. Skip routine recurring events that ran as-scheduled. Show acceptance status for each. Flag any not yet responded to so Adam can act before closing out the day.]
 
 #### Slack Activity
 | Channel | Topic | Key Detail |
@@ -132,7 +164,10 @@ Find `## Summary` in today's note. The Computer Session Overview sub-section is 
 [Human-written emails only — skip GitHub notifications, automated alerts, ACH uploads]
 
 #### Conversations
-[Freeform — leave empty if nothing notable beyond what's in Log and Slack Activity]
+[Notable bilateral exchanges where something was resolved, decided, or escalated. Can overlap with the Log — link up to the relevant block for detail. Use sub-bullets for key points.]
+- **Person / #channel ↔ Other** → [↑](#log-block-anchor)
+  - Key decision or outcome
+  - Follow-up item if any
 ```
 
 If a sub-section already has content (second shutdown or user pre-filled), update rather than replace — add new rows, check off completed items.
@@ -147,20 +182,20 @@ Create the daily note at `log/daily/YYYY-MM-DD.md` via Obsidian MCP if it doesn'
 
 Populate in three passes, in order:
 
-**Pass 1 — Linear:** Add active Linear issues (In Progress status) and any open incidents (`#inc-*` channels from Slack):
+**Pass 1 — Linear:** Add active Linear issues (In Progress status) and any open incidents (`#inc-*` channels from Slack). For each ticket, check whether an effort file exists in `efforts/` with a matching `linear` field. If one exists, link to the effort; if not, create a minimal effort file first, then link to it. Never link directly to the Linear URL. Use plain bullets — no task checkboxes.
 
 ```markdown
-- [ ] [INFRA-4398](url) Create SpiceDB kind
-- [ ] [INFRA-4412](url) New Service: eventsorch
-- [ ] INC: Description [#inc-channel-name](slack-url)
+- [[efforts/20260319100006-spicedb-kind|INFRA-4398]] Create SpiceDB kind
+- [[efforts/20260316164047-new-service-eventsorch|INFRA-4412]] New Service: eventsorch
+- INC: Description [#inc-channel-name](slack-url)
 ```
 
 **Pass 2 — Active efforts:** Read `efforts/` via Obsidian MCP. Scan frontmatter for files where `type` is `effort` and `status` is `active`, `planning`, `waiting`, or `blocked`. For each one:
 - If the effort has a `linear` field, extract the ticket ID by splitting on `/` and taking the last non-empty segment. If that ticket ID is already listed in Pass 1, **skip it**.
-- Otherwise, add an effort line:
+- Otherwise, add a plain bullet linking directly to the effort — no prefix, no checkbox:
 
 ```markdown
-- [ ] effort: [[20260318211939-roll-ibm-mq-command|Roll IBM MQ Command]]
+- [[efforts/20260318211939-roll-ibm-mq-command|Roll IBM MQ Command]]
 ```
 
 Use the `title` frontmatter field for the display name.
@@ -234,16 +269,16 @@ Scan `efforts/` via Obsidian MCP for stale efforts (see the review skill for sta
 
 Include a one-line summary in the shutdown report.
 
-## Step 8: Stamp and Report
+## Step 8: Report
 
-Set `last_reviewed` to today's date on today's daily note via Obsidian MCP's `update_frontmatter`.
+**Do not set `last_reviewed` during shutdown.** That field is stamped during a separate review pass — a deliberate look-back on a *following* day, once there's been time to fully process captures, convert open tasks into efforts, and confirm nothing was missed. Shutdown closes the day; review confirms it was fully digested.
 
 Report what was done:
 
 ```
 Shutdown complete:
 - Log: 2 existing blocks enriched, 1 new block added (approved)
-- Summary: Calendar (3 events), PRs reviewed (4), Linear (5 completed, 5 active), Slack (11 threads), Email (4 highlights)
+- Summary: New invites (2, 1 unaccepted), PRs reviewed (4), Linear (5 completed, 5 active), Slack (11 threads), Email (4 highlights)
 - Tomorrow's note: created with 5 Open items (3 Linear, 1 incident, 2 efforts), 3 Plan entries
 - Standup: drafted at comms/2026_03_19-infra-standup.md
 - Memory: 1 new person, AGENTS.md regenerated
