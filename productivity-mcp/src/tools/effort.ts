@@ -114,7 +114,7 @@ async function handleCreateEffort(
   const frontmatter: Record<string, any> = {
     title: args.title,
     type: "effort",
-    status,
+    effort_status: status,
     tags: ["effort"],
   };
   if (reviewAfter) frontmatter.review_after = reviewAfter;
@@ -140,7 +140,7 @@ async function handleUpdateEffortStatus(
   const reviewInterval = getReviewInterval(status);
   const reviewAfter = reviewInterval > 0 ? addDays(today, reviewInterval) : undefined;
 
-  const update: Record<string, any> = { status };
+  const update: Record<string, any> = { effort_status: status };
   if (reviewAfter) {
     update.review_after = reviewAfter;
   }
@@ -175,7 +175,7 @@ async function handleListEfforts(
       efforts.push({
         path: note.path,
         title: fm.title || note.path,
-        status: fm.status || "unknown",
+        status: fm.effort_status || fm.status || "unknown",
         review_after: fm.review_after || null,
         linear: fm.linear || null,
       });

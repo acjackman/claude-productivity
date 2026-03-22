@@ -31,7 +31,7 @@ describe("effort tools", () => {
       const note = await fileSystem.readNote(data.path);
       expect(note.frontmatter.title).toBe("Add Redis caching layer");
       expect(note.frontmatter.type).toBe("effort");
-      expect(note.frontmatter.status).toBe("active");
+      expect(note.frontmatter.effort_status).toBe("active");
       expect(note.frontmatter.tags).toContain("effort");
       expect(note.content).toContain("# Add Redis caching layer");
       expect(note.content).toContain("## Links");
@@ -90,7 +90,7 @@ describe("effort tools", () => {
       expect(result!.isError).toBeFalsy();
 
       const note = await fileSystem.readNote("efforts/20260318211939.md");
-      expect(note.frontmatter.status).toBe("waiting");
+      expect(note.frontmatter.effort_status).toBe("waiting");
       expect(note.frontmatter.review_after).toBeTruthy();
     });
 
