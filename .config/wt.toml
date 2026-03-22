@@ -1,0 +1,9 @@
+# Copy node_modules and other gitignored caches from source worktree,
+# then install to catch any drift. Fast path: copy makes npm install a no-op.
+[post-create]
+copy = "wt step copy-ignored"
+install = "cd productivity-mcp && npm install"
+
+# Type-check before merge
+[pre-merge]
+build = "cd productivity-mcp && npm run build"

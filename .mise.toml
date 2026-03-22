@@ -1,0 +1,28 @@
+[tools]
+node = "22"    # LTS — mcpvault targets Node 22+
+
+[tasks.build]
+description = "Build the MCP server"
+dir = "{{config_root}}/productivity-mcp"
+run = "npm run build"
+
+[tasks.dev]
+description = "Run the MCP server in dev mode (tsx, no build needed)"
+dir = "{{config_root}}/productivity-mcp"
+run = "npm run dev -- ${OBSIDIAN_VAULT:-test/fixtures/vault}"
+
+[tasks.test]
+description = "Run MCP server tests"
+dir = "{{config_root}}/productivity-mcp"
+run = "npx vitest run"
+
+[tasks."test:watch"]
+description = "Run tests in watch mode"
+dir = "{{config_root}}/productivity-mcp"
+run = "npx vitest"
+
+[tasks.inspect]
+description = "Launch MCP Inspector against the test vault"
+dir = "{{config_root}}/productivity-mcp"
+run = "npx @modelcontextprotocol/inspector node dist/server.js ../test/fixtures/vault"
+depends = ["build"]
