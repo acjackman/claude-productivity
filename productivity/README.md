@@ -20,10 +20,57 @@ claude plugin install --path /path/to/this-repo
 
 The plugin uses Obsidian MCP for vault access, so it works regardless of your current working directory.
 
+### MCP server setup
+
+The plugin ships with a local MCP server (`productivity-mcp`) that extends [mcpvault](https://github.com/bitbonsai/mcpvault) with domain-specific tools for daily notes, efforts, and memory. Install it the same way you'd install mcpvault:
+
+```bash
+# From the repo root
+mise run install
+```
+
+This builds the TypeScript and installs the `productivity-mcp` binary globally under mise's Node, creating a shim at `~/.local/share/mise/shims/productivity-mcp`.
+
+Set your vault path so the plugin can find it:
+
+```bash
+# Add to your shell profile (~/.zshrc, ~/.bashrc, etc.)
+export OBSIDIAN_VAULT="$HOME/path/to/your/vault"
+```
+
+The plugin's `.mcp.json` is already configured to use `productivity-mcp` with `$OBSIDIAN_VAULT`. After install, verify it works:
+
+```bash
+~/.local/share/mise/shims/productivity-mcp --version
+```
+
+If Claude Code can't resolve `productivity-mcp` from PATH, add a user-level MCP override in `~/.claude.json` with the full shim path (same pattern as mcpvault):
+
+```bash
+claude mcp add --scope user obsidian \
+  ~/.local/share/mise/shims/productivity-mcp ~/path/to/vault
+```
+
+To update after pulling changes:
+
+```bash
+mise run install
+```
+
 ### Local development
 
 ```bash
-claude --plugin-dir ./
+# Run the MCP server in dev mode (tsx, no build step)
+mise run dev
+
+# Run tests
+mise run test
+
+# Launch the MCP Inspector against the test vault
+mise run inspect
+
+# Start a Claude Code session with the test vault
+claude --mcp-config test/mcp-config.json
 ```
 
 ## What It Does

@@ -21,6 +21,12 @@ description = "Run tests in watch mode"
 dir = "{{config_root}}/productivity-mcp"
 run = "npx vitest"
 
+[tasks.install]
+description = "Build and install productivity-mcp globally (creates shim at mise's bin path)"
+dir = "{{config_root}}/productivity-mcp"
+run = "npm run build && npm install -g ."
+depends = ["build"]
+
 [tasks.inspect]
 description = "Launch MCP Inspector against the test vault"
 dir = "{{config_root}}/productivity-mcp"
