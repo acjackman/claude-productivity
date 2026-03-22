@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@bitbonsai/mcpvault": "^0.10.0",
+    "@callumalpass/mdbase": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.20.0"
   },
   "devDependencies": {

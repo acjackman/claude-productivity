@@ -27,6 +27,7 @@ import { getVaultToolDefinitions, handleVaultTool } from "./tools/vault.js";
 import { getDailyNoteTools, handleDailyNoteTool } from "./tools/daily.js";
 import { getEffortTools, handleEffortTool } from "./tools/effort.js";
 import { getMemoryTools, handleMemoryTool } from "./tools/memory.js";
+import { getQueryTools, handleQueryTool } from "./tools/query.js";
 
 // Version from package.json
 const __filename = fileURLToPath(import.meta.url);
@@ -88,6 +89,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     ...getDailyNoteTools(),
     ...getEffortTools(),
     ...getMemoryTools(),
+    ...getQueryTools(),
   ],
 }));
 
@@ -100,7 +102,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       (await handleVaultTool(name, args, fileSystem, searchService)) ??
       (await handleDailyNoteTool(name, args, fileSystem)) ??
       (await handleEffortTool(name, args, fileSystem)) ??
-      (await handleMemoryTool(name, args, fileSystem));
+      (await handleMemoryTool(name, args, fileSystem)) ??
+      (await handleQueryTool(name, args, vaultPath));
 
     if (result) return result;
 
