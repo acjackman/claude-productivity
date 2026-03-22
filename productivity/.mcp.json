@@ -25,8 +25,11 @@
       "url": "https://api.githubcopilot.com/mcp/"
     },
     "obsidian": {
-      "type": "http",
-      "url": "https://obsidian.mcp.claude.com/mcp"
+      "command": "node",
+      "args": ["../productivity-mcp/dist/server.js"],
+      "env": {
+        "OBSIDIAN_VAULT": "${OBSIDIAN_VAULT}"
+      }
     }
   }
 }
