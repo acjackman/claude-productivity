@@ -173,6 +173,28 @@ export function getObsidianCliTools(): ToolDefinition[] {
         required: ["action", "name"],
       },
     },
+    {
+      name: "obsidian_command",
+      description:
+        "Execute any Obsidian command by ID. Use `obsidian commands` to discover available IDs. " +
+        "Some commands open UI modals (e.g. tasknotes:create-new-task prompts for title). " +
+        "Only use when the user is at their Obsidian desktop.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: {
+            type: "string",
+            description:
+              "Command ID, e.g. 'tasknotes:create-new-task', 'templater-obsidian:insert-templater'",
+          },
+          vault: {
+            type: "string",
+            description: "Vault name",
+          },
+        },
+        required: ["id"],
+      },
+    },
   ];
 }
 
@@ -191,6 +213,8 @@ export async function handleObsidianCliTool(
       return handleBaseQuery(args);
     case "obsidian_property":
       return handleProperty(args);
+    case "obsidian_command":
+      return handleCommand(args);
     default:
       return undefined;
   }
@@ -300,6 +324,15 @@ async function handleProperty(args: Record<string, any>): Promise<ToolResult> {
   }
 
   const cliArgs = buildArgs(command, cliOpts);
+  const output = await runObsidian(cliArgs);
+  return ok(output);
+}
+
+async function handleCommand(args: Record<string, any>): Promise<ToolResult> {
+  const cliArgs = buildArgs("command", {
+    id: args.id,
+    vault: args.vault,
+  });
   const output = await runObsidian(cliArgs);
   return ok(output);
 }

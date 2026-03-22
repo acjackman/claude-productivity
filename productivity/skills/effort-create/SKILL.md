@@ -20,15 +20,40 @@ Promotes an idea or task into a tracked effort with proper structure.
    - **Linear link** — if they mention a ticket, extract the URL
    - **Slug** — derive from title if it's memorable, otherwise omit (just the timestamp ID)
 
-2. **Create the effort** via MCP:
+2. **Create the effort.** Three creation paths, tried in order:
+
+   **Path A — TaskNotes via Obsidian (preferred when user is at their desk):**
+   The TaskNotes plugin creates efforts with full frontmatter, proper datetime IDs,
+   and the body template. Use when Obsidian is open and the user can interact with the UI.
+   ```
+   obsidian_command({ id: "tasknotes:create-new-task" })
+   ```
+   TaskNotes opens a modal for the title. After the user confirms, find the new file
+   via `obsidian_read` or `query_notes` and patch in any extra fields (status, linear, etc.)
+   via `update_frontmatter`.
+
+   **Path B — Obsidian CLI (headless, Obsidian running):**
+   When the agent is running without user interaction but Obsidian is available.
+   The `create_effort` MCP tool handles this automatically — it creates a file in
+   `efforts/`, Templater applies the folder template, then the tool patches in title
+   and custom fields.
    ```
    create_effort({
      title: "...",
      status: "idea",
      slug: "optional-slug",
-     linear: "https://linear.app/..."  // if mentioned
+     linear: "https://linear.app/..."
    })
    ```
+
+   **Path C — Direct creation (no Obsidian):**
+   In tests, CI, Cowork, or when Obsidian isn't running. The `create_effort` tool
+   falls back to creating the file directly with mcpvault, producing compatible
+   frontmatter and body structure.
+
+   The `create_effort` tool automatically selects Path B or C. Only use Path A
+   when you know the user is actively at Obsidian and would benefit from the
+   TaskNotes UI (e.g., they want to set a due date, use the calendar picker, etc.).
 
 3. **Add to today's daily note** — capture a reference to the new effort:
    ```
