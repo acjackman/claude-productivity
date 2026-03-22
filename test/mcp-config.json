@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "npx",
+      "args": ["tsx", "../productivity-mcp/src/server.ts", "./fixtures/vault"],
+      "cwd": "test"
+    }
+  }
+}
