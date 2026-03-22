@@ -29,6 +29,12 @@ export function getEffortTools(): ToolDefinition[] {
             type: "string",
             description: "Optional Linear ticket URL (without title slug)",
           },
+          priority: {
+            type: "string",
+            enum: ["none", "low", "medium", "high", "urgent"],
+            description: "Priority level (default: 'none')",
+            default: "none",
+          },
         },
         required: ["title"],
       },
@@ -93,6 +99,11 @@ export async function handleEffortTool(
   }
 }
 
+/**
+ * Fallback body when Obsidian CLI isn't available.
+ */
+const FALLBACK_BODY = (title: string) => `# ${title}\n\n## Links\n`;
+
 async function handleCreateEffort(
   args: Record<string, any>,
   fileSystem: FileSystemService
@@ -102,29 +113,127 @@ async function handleCreateEffort(
     return err(`Invalid status: ${status}. Must be one of: ${EFFORT_STATUSES.join(", ")}`);
   }
 
+  // Try Obsidian CLI first — lets Templater handle template resolution
+  const cliResult = await tryCreateViaObsidianCli(args, status, fileSystem);
+  if (cliResult) return cliResult;
+
+  // Fallback: create directly via mcpvault
+  return createDirectly(args, status, fileSystem);
+}
+
+/**
+ * Create effort via Obsidian CLI. Templater auto-applies the folder template,
+ * resolves dates/IDs/frontmatter. We then patch in the title and any extra fields.
+ */
+async function tryCreateViaObsidianCli(
+  args: Record<string, any>,
+  status: EffortStatus,
+  fileSystem: FileSystemService
+): Promise<ToolResult | null> {
+  try {
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const exec = promisify(execFile);
+    const CLI = "/Applications/Obsidian.app/Contents/MacOS/obsidian";
+
+    const vaultName = process.env.OBSIDIAN_VAULT_NAME;
+    if (!vaultName) return null; // Can't use CLI without vault name
+
+    // Create a temp file in efforts/ — Templater will rename it to YYYYMMDDHHMMSS.md
+    const tempName = `_creating-${Date.now()}.md`;
+    const cliArgs = [
+      `vault=${vaultName}`,
+      "create",
+      `path=efforts/${tempName}`,
+    ];
+
+    const { stdout } = await exec(CLI, cliArgs, { timeout: 15000 });
+    const match = stdout.match(/Created:\s*(.+)/);
+    if (!match) return null;
+
+    // Templater renames the file — the output tells us the initial path,
+    // but we need to find the actual file. Wait briefly for Templater to process.
+    await new Promise((r) => setTimeout(r, 2000));
+
+    // Find the newest effort file (Templater renamed it)
+    const listing = await fileSystem.listDirectory("efforts");
+    const mdFiles = listing.files
+      .filter((f) => f.endsWith(".md"))
+      .sort()
+      .reverse();
+
+    // The newest file by name (YYYYMMDDHHMMSS sorting) is our creation
+    const createdFile = mdFiles[0];
+    if (!createdFile) return null;
+
+    const path = `efforts/${createdFile}`;
+
+    // Patch in the title and any non-default fields
+    const updates: Record<string, any> = { title: args.title };
+    if (status !== "idea") updates.effort_status = status;
+    if (args.priority && args.priority !== "none") updates.priority = args.priority;
+    if (args.linear) updates.linear = args.linear;
+
+    // Update review_after based on status (Templater defaults to 14 days)
+    const today = formatDate(new Date());
+    const reviewInterval = getReviewInterval(status);
+    if (reviewInterval > 0 && reviewInterval !== 14) {
+      updates.review_after = addDays(today, reviewInterval);
+    }
+
+    await fileSystem.updateFrontmatter({ path, frontmatter: updates, merge: true });
+
+    // Patch the body title (Templater writes "# null" since there's no UI prompt)
+    await fileSystem.patchNote({ path, oldString: "# null", newString: `# ${args.title}` });
+
+    const note = await fileSystem.readNote(path);
+    const reviewAfter = note.frontmatter.review_after || null;
+
+    return ok(JSON.stringify({ path, title: args.title, status, review_after: reviewAfter, via: "obsidian-cli" }, null, 2));
+  } catch {
+    return null; // Fall through to direct creation
+  }
+}
+
+/**
+ * Direct creation via mcpvault — used when Obsidian CLI isn't available
+ * (e.g., in tests, CI, or when Obsidian isn't running).
+ */
+async function createDirectly(
+  args: Record<string, any>,
+  status: EffortStatus,
+  fileSystem: FileSystemService
+): Promise<ToolResult> {
   const id = generateEffortId();
   const slug = args.slug ? `-${args.slug}` : "";
   const filename = `${id}${slug}.md`;
   const path = `efforts/${filename}`;
 
-  const today = formatDate(new Date());
+  const now = new Date();
+  const today = formatDate(now);
   const reviewInterval = getReviewInterval(status);
   const reviewAfter = reviewInterval > 0 ? addDays(today, reviewInterval) : undefined;
+  const isoNow = now.toISOString().replace(/\.\d{3}Z$/, "Z");
+  const dailyLink = `[[log/daily/${today}|${today}]]`;
 
   const frontmatter: Record<string, any> = {
     title: args.title,
     type: "effort",
     effort_status: status,
+    priority: args.priority || "none",
+    created_at: isoNow,
+    modified_at: isoNow,
+    review_after: reviewAfter || today,
+    created_day: dailyLink,
+    modified_days: [dailyLink],
     tags: ["effort"],
   };
-  if (reviewAfter) frontmatter.review_after = reviewAfter;
   if (args.linear) frontmatter.linear = args.linear;
 
-  const content = `# ${args.title}\n\n## Links\n`;
-
+  const content = FALLBACK_BODY(args.title);
   await fileSystem.writeNote({ path, content, frontmatter });
 
-  return ok(JSON.stringify({ path, title: args.title, status, review_after: reviewAfter || null }, null, 2));
+  return ok(JSON.stringify({ path, title: args.title, status, review_after: reviewAfter || null, via: "direct" }, null, 2));
 }
 
 async function handleUpdateEffortStatus(

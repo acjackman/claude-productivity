@@ -28,6 +28,7 @@ import { getDailyNoteTools, handleDailyNoteTool } from "./tools/daily.js";
 import { getEffortTools, handleEffortTool } from "./tools/effort.js";
 import { getMemoryTools, handleMemoryTool } from "./tools/memory.js";
 import { getQueryTools, handleQueryTool } from "./tools/query.js";
+import { getObsidianCliTools, handleObsidianCliTool } from "./tools/obsidian-cli.js";
 
 // Version from package.json
 const __filename = fileURLToPath(import.meta.url);
@@ -90,6 +91,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     ...getEffortTools(),
     ...getMemoryTools(),
     ...getQueryTools(),
+    ...getObsidianCliTools(),
   ],
 }));
 
@@ -103,7 +105,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       (await handleDailyNoteTool(name, args, fileSystem)) ??
       (await handleEffortTool(name, args, fileSystem)) ??
       (await handleMemoryTool(name, args, fileSystem)) ??
-      (await handleQueryTool(name, args, vaultPath));
+      (await handleQueryTool(name, args, vaultPath)) ??
+      (await handleObsidianCliTool(name, args));
 
     if (result) return result;
 
