@@ -35,6 +35,29 @@ export function getEffortTools(): ToolDefinition[] {
             description: "Priority level (default: 'none')",
             default: "none",
           },
+          goal: {
+            type: "string",
+            description: "What does done look like? Written as a ## Goal section.",
+          },
+          context: {
+            type: "string",
+            description: "Background info, constraints, related work. Written as a ## Context section.",
+          },
+          next_steps: {
+            type: "array",
+            items: { type: "string" },
+            description: "Concrete next actions. Written as checkboxes in a ## Next Steps section.",
+          },
+          links: {
+            type: "array",
+            items: { type: "string" },
+            description: "Markdown links to related resources. Added to the ## Links section.",
+          },
+          open_questions: {
+            type: "array",
+            items: { type: "string" },
+            description: "Unknowns or decisions needed. Written as a ## Open Questions section.",
+          },
         },
         required: ["title"],
       },
@@ -57,6 +80,35 @@ export function getEffortTools(): ToolDefinition[] {
           },
         },
         required: ["path", "status"],
+      },
+    },
+    {
+      name: "effort_append_section",
+      description:
+        "Append or replace a section in an existing effort. Use for adding Goal, Context, " +
+        "Next Steps, Open Questions, Log entries, or any ## heading to an effort file.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+            description: "Path to the effort file, e.g. 'efforts/20260318211939.md'",
+          },
+          section: {
+            type: "string",
+            description: "Section heading (without ##), e.g. 'Goal', 'Next Steps', 'Log'",
+          },
+          content: {
+            type: "string",
+            description: "Markdown content for the section body",
+          },
+          replace: {
+            type: "boolean",
+            description: "Replace existing section content (default: false, appends instead)",
+            default: false,
+          },
+        },
+        required: ["path", "section", "content"],
       },
     },
     {
@@ -92,6 +144,8 @@ export async function handleEffortTool(
       return handleCreateEffort(args, fileSystem);
     case "update_effort_status":
       return handleUpdateEffortStatus(args, fileSystem);
+    case "effort_append_section":
+      return handleAppendSection(args, fileSystem);
     case "list_efforts":
       return handleListEfforts(args, fileSystem);
     default:
@@ -100,9 +154,47 @@ export async function handleEffortTool(
 }
 
 /**
- * Fallback body when Obsidian CLI isn't available.
+ * Build effort body from provided fields. Sections are only included
+ * when the caller provides content for them.
  */
-const FALLBACK_BODY = (title: string) => `# ${title}\n\n## Links\n`;
+function buildEffortBody(args: Record<string, any>): string {
+  const lines: string[] = [`# ${args.title}`, ""];
+
+  if (args.goal) {
+    lines.push("## Goal", args.goal, "");
+  }
+
+  if (args.context) {
+    lines.push("## Context", args.context, "");
+  }
+
+  if (args.next_steps?.length) {
+    lines.push("## Next Steps");
+    for (const step of args.next_steps) {
+      lines.push(`- [ ] ${step}`);
+    }
+    lines.push("");
+  }
+
+  if (args.open_questions?.length) {
+    lines.push("## Open Questions");
+    for (const q of args.open_questions) {
+      lines.push(`- ${q}`);
+    }
+    lines.push("");
+  }
+
+  // Links section is always present (effort template convention)
+  lines.push("## Links");
+  if (args.links?.length) {
+    for (const link of args.links) {
+      lines.push(`- ${link}`);
+    }
+  }
+  lines.push("");
+
+  return lines.join("\n");
+}
 
 async function handleCreateEffort(
   args: Record<string, any>,
@@ -183,8 +275,9 @@ async function tryCreateViaObsidianCli(
 
     await fileSystem.updateFrontmatter({ path, frontmatter: updates, merge: true });
 
-    // Patch the body title (Templater writes "# null" since there's no UI prompt)
-    await fileSystem.patchNote({ path, oldString: "# null", newString: `# ${args.title}` });
+    // Patch the body: replace Templater's "# null\n\n## Links" with rich content
+    const richBody = buildEffortBody(args);
+    await fileSystem.patchNote({ path, oldString: "# null\n\n## Links", newString: richBody.trimEnd() });
 
     const note = await fileSystem.readNote(path);
     const reviewAfter = note.frontmatter.review_after || null;
@@ -230,7 +323,7 @@ async function createDirectly(
   };
   if (args.linear) frontmatter.linear = args.linear;
 
-  const content = FALLBACK_BODY(args.title);
+  const content = buildEffortBody(args);
   await fileSystem.writeNote({ path, content, frontmatter });
 
   return ok(JSON.stringify({ path, title: args.title, status, review_after: reviewAfter || null, via: "direct" }, null, 2));
@@ -257,6 +350,69 @@ async function handleUpdateEffortStatus(
   await fileSystem.updateFrontmatter({ path: args.path, frontmatter: update, merge: true });
 
   return ok(JSON.stringify({ path: args.path, status, review_after: reviewAfter || null }, null, 2));
+}
+
+async function handleAppendSection(
+  args: Record<string, any>,
+  fileSystem: FileSystemService
+): Promise<ToolResult> {
+  const { path, section, content, replace } = args;
+  const heading = `## ${section}`;
+
+  const note = await fileSystem.readNote(path);
+  const originalContent = note.originalContent;
+
+  // Check if section already exists
+  const lines = originalContent.split("\n");
+  const sectionIdx = lines.findIndex((l) => l === heading);
+
+  if (sectionIdx !== -1 && !replace) {
+    // Append to existing section — find the end of it
+    let endIdx = lines.length;
+    for (let i = sectionIdx + 1; i < lines.length; i++) {
+      if (lines[i].startsWith("## ")) {
+        endIdx = i;
+        break;
+      }
+    }
+    // Insert before the next heading
+    const oldSection = lines.slice(sectionIdx, endIdx).join("\n");
+    const trimmed = oldSection.replace(/\n+$/, "");
+    const newSection = `${trimmed}\n${content}\n`;
+    await fileSystem.patchNote({ path, oldString: oldSection, newString: newSection });
+  } else if (sectionIdx !== -1 && replace) {
+    // Replace existing section content
+    let endIdx = lines.length;
+    for (let i = sectionIdx + 1; i < lines.length; i++) {
+      if (lines[i].startsWith("## ")) {
+        endIdx = i;
+        break;
+      }
+    }
+    const oldSection = lines.slice(sectionIdx, endIdx).join("\n");
+    const newSection = `${heading}\n${content}\n`;
+    await fileSystem.patchNote({ path, oldString: oldSection, newString: newSection });
+  } else {
+    // Section doesn't exist — append before ## Links (convention) or at end
+    const linksIdx = lines.findIndex((l) => l === "## Links");
+    if (linksIdx !== -1) {
+      const anchor = lines[linksIdx];
+      await fileSystem.patchNote({
+        path,
+        oldString: anchor,
+        newString: `${heading}\n${content}\n\n${anchor}`,
+      });
+    } else {
+      // Append at end
+      await fileSystem.writeNote({
+        path,
+        content: `\n${heading}\n${content}\n`,
+        mode: "append",
+      });
+    }
+  }
+
+  return ok(JSON.stringify({ path, section, action: replace ? "replaced" : "appended" }));
 }
 
 async function handleListEfforts(

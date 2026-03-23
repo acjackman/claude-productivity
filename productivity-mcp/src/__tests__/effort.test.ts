@@ -106,6 +106,106 @@ describe("effort tools", () => {
     });
   });
 
+  describe("create_effort with body sections", () => {
+    it("creates effort with goal, next steps, and links", async () => {
+      const result = await handleEffortTool(
+        "create_effort",
+        {
+          title: "Add Redis caching",
+          status: "planning",
+          goal: "Reduce API latency by 50% for hot paths.",
+          next_steps: ["Profile top 5 endpoints", "Evaluate Redis vs Memcached", "Implement cache layer"],
+          links: ["[RFC doc](https://notion.so/redis-rfc)", "[[20260318211939|Phoenix]]"],
+          open_questions: ["What's the eviction policy?", "Do we need cluster mode?"],
+        },
+        fileSystem
+      );
+      expect(result!.isError).toBeFalsy();
+
+      const data = JSON.parse(result!.content[0].text);
+      const note = await fileSystem.readNote(data.path);
+
+      expect(note.content).toContain("## Goal");
+      expect(note.content).toContain("Reduce API latency");
+      expect(note.content).toContain("## Next Steps");
+      expect(note.content).toContain("- [ ] Profile top 5 endpoints");
+      expect(note.content).toContain("## Open Questions");
+      expect(note.content).toContain("- What's the eviction policy?");
+      expect(note.content).toContain("## Links");
+      expect(note.content).toContain("[RFC doc]");
+    });
+
+    it("creates minimal effort when no body sections provided", async () => {
+      const result = await handleEffortTool(
+        "create_effort",
+        { title: "Quick idea" },
+        fileSystem
+      );
+      const data = JSON.parse(result!.content[0].text);
+      const note = await fileSystem.readNote(data.path);
+
+      expect(note.content).toContain("# Quick idea");
+      expect(note.content).toContain("## Links");
+      expect(note.content).not.toContain("## Goal");
+      expect(note.content).not.toContain("## Next Steps");
+    });
+  });
+
+  describe("effort_append_section", () => {
+    it("appends a new section to an effort", async () => {
+      const result = await handleEffortTool(
+        "effort_append_section",
+        {
+          path: "efforts/20260318211939.md",
+          section: "Approach",
+          content: "Use pglogical for zero-downtime migration.",
+        },
+        fileSystem
+      );
+      expect(result!.isError).toBeFalsy();
+
+      const note = await fileSystem.readNote("efforts/20260318211939.md");
+      expect(note.content).toContain("## Approach");
+      expect(note.content).toContain("Use pglogical for zero-downtime migration.");
+    });
+
+    it("appends to an existing section", async () => {
+      const result = await handleEffortTool(
+        "effort_append_section",
+        {
+          path: "efforts/20260318211939.md",
+          section: "Next Steps",
+          content: "- [ ] New step appended by agent",
+        },
+        fileSystem
+      );
+      expect(result!.isError).toBeFalsy();
+
+      const note = await fileSystem.readNote("efforts/20260318211939.md");
+      expect(note.content).toContain("- [ ] New step appended by agent");
+      // Original content should still be there
+      expect(note.content).toContain("Benchmark pglogical replication lag");
+    });
+
+    it("replaces a section when replace=true", async () => {
+      const result = await handleEffortTool(
+        "effort_append_section",
+        {
+          path: "efforts/20260318211939.md",
+          section: "Next Steps",
+          content: "- [ ] Completely new plan",
+          replace: true,
+        },
+        fileSystem
+      );
+      expect(result!.isError).toBeFalsy();
+
+      const note = await fileSystem.readNote("efforts/20260318211939.md");
+      expect(note.content).toContain("- [ ] Completely new plan");
+      expect(note.content).not.toContain("Benchmark pglogical");
+    });
+  });
+
   describe("list_efforts", () => {
     it("lists active efforts excluding done/dropped", async () => {
       const result = await handleEffortTool("list_efforts", {}, fileSystem);
