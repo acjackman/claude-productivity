@@ -84,13 +84,29 @@ This plugin gives Claude a persistent understanding of your work:
 
 ## Skills
 
-| Skill | Invocable | What it does |
-|-------|-----------|--------------|
-| `bootstrap` | Yes | First-run setup — scans all connected sources, builds memory, collects config |
-| `start` | Yes | Orient user to the system and available capabilities |
-| `review` | Yes | Triage stale efforts and cycles — interactive status updates |
-| `memory-management` | No | Two-tier memory system — hot cache + full vault |
-| `task-management` | No | Bullet journal task model in Obsidian daily logs |
+### Setup & maintenance
+| Skill | What it does |
+|-------|--------------|
+| `bootstrap` | First-run setup — scans all connected sources, builds memory, collects config |
+| `start` | Orient user to the system and available capabilities |
+| `review` | Triage stale efforts and cycles — interactive status updates |
+
+### Working session
+| Skill | What it does |
+|-------|--------------|
+| `capture` | Quick capture to today's daily note with optional effort linking |
+| `done` | Check off completed items + optional completion logging |
+| `effort-create` | Create a new effort from a description or conversation |
+| `effort-log` | Log progress on an effort (both effort file and daily note) |
+| `effort-decompose` | Break an effort into concrete next steps with readiness assessment |
+| `refine` | Structured interview to clarify vague efforts before decomposition |
+| `handoff` | Create agent-ready efforts with structured instructions for delegation |
+
+### Reference (used by other skills)
+| Skill | What it does |
+|-------|--------------|
+| `memory-management` | Two-tier memory system — hot cache + full vault |
+| `task-management` | Bullet journal task model in Obsidian daily logs |
 
 ## Setup
 
